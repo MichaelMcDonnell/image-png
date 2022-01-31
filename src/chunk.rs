@@ -96,3 +96,79 @@ impl fmt::Debug for ChunkType {
             .finish()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const CRITICAL_CHUNKS: [ChunkType; 4] = [IHDR, PLTE, IDAT, IEND];
+    const ANCILLARY_CHUNKS: [ChunkType; 11] = [
+        tRNS, bKGD, tIME, pHYs, cHRM, gAMA, sRGB, iCCP, tEXt, zTXt, iTXt,
+    ];
+    const EXTENSION_CHUNKS: [ChunkType; 3] = [acTL, fcTL, fdAT];
+
+    #[test]
+    fn test_is_critical() {
+        for type_ in CRITICAL_CHUNKS {
+            assert!(is_critical(type_));
+        }
+        for type_ in ANCILLARY_CHUNKS {
+            assert!(!is_critical(type_));
+        }
+        for type_ in EXTENSION_CHUNKS {
+            assert!(!is_critical(type_));
+        }
+    }
+
+    #[test]
+    fn test_is_private() {
+        for type_ in CRITICAL_CHUNKS {
+            assert!(!is_private(type_));
+        }
+        for type_ in ANCILLARY_CHUNKS {
+            assert!(!is_private(type_));
+        }
+        // The extension chunks are private and not part of PNG specification
+        for type_ in EXTENSION_CHUNKS {
+            assert!(is_private(type_));
+        }
+    }
+
+    #[test]
+    fn test_reserved_set() {
+        // The reserved bit is reserved for later use so it should not be set
+        // for the known types.
+        for type_ in CRITICAL_CHUNKS {
+            assert!(!reserved_set(type_));
+        }
+        for type_ in ANCILLARY_CHUNKS {
+            assert!(!reserved_set(type_));
+        }
+        for type_ in EXTENSION_CHUNKS {
+            assert!(!reserved_set(type_));
+        }
+    }
+
+    #[test]
+    fn test_safe_to_copy() {
+        for type_ in CRITICAL_CHUNKS {
+            assert!(!safe_to_copy(type_));
+        }
+        // Only some of the ancillary chunks are safe to copy
+        for type_ in [tRNS, bKGD, tIME, cHRM, gAMA, sRGB, iCCP] {
+            assert!(!safe_to_copy(type_));
+        }
+        for type_ in [pHYs, tEXt, zTXt, iTXt] {
+            assert!(safe_to_copy(type_));
+        }
+        for type_ in EXTENSION_CHUNKS {
+            assert!(!safe_to_copy(type_));
+        }
+    }
+
+    #[test]
+    fn test_debug_fmt() {
+        let s = format!("{:?}", IHDR);
+        assert_eq!(s, "ChunkType { type: IHDR, critical: true, private: false, reserved: false, safecopy: false }");
+    }
+}
